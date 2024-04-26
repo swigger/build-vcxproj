@@ -1,7 +1,15 @@
 [package]
 name = "build-vcxproj"
 version = "0.1.0"
+categories = ["development-tools"]
+description = "load sources from vcxproj in build.rs"
 edition = "2021"
+keywords = ["build", "msvc"]
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/swigger/build-vcxproj"
+homepage = "https://github.com/swigger/build-vcxproj"
+rust-version = "1.77"
 
 [dependencies]
 xml-rs = "0.8.20"
