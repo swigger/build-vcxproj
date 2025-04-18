@@ -282,6 +282,9 @@ pub fn compile_rc(src: &str) -> Option<()> {
 }
 #[cfg(not(target_os = "windows"))]
 pub fn compile_rc(src: &str) -> Option<()> {
+	let _ = src;
+	let _ = cc::Build::new();
+	let _ = env::var("OUT_DIR");
     Some(())
 }
 
