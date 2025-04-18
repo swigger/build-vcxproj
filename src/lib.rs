@@ -1,11 +1,12 @@
 pub mod vcpkg;
-use std::{fs, io};
+pub mod sample_builder;
+use std::{fs, io, env};
 use std::path::Path;
 use std::process::{Command, ExitStatus};
 use std::time::SystemTime;
 use std::io::BufReader;
 use xml::reader::{EventReader, XmlEvent};
-
+use cc;
 
 pub fn system(command_line: &str) -> io::Result<ExitStatus> {
     #[cfg(target_os = "windows")]
@@ -235,6 +236,54 @@ impl Vcxproj {
     }
 }
 
+#[cfg(target_os = "windows")]
+fn find_rc() -> Option<Command> {
+    if let Some(tl) = cc::windows_registry::find_tool("x86_64", "cl.exe") {
+        for (name, val) in tl.env() {
+            let mut s1 = name.to_str()?.to_string();
+            s1.make_ascii_lowercase();
+            if s1 == "path" {
+                if let Some(path) = val.to_str() {
+                    for path1 in path.split(';') {
+                        let rc_path = Path::new(path1).join("rc.exe");
+                        if rc_path.exists() && rc_path.is_file() {
+                            let mut command = Command::new(rc_path);
+                            for (k,v) in tl.env() {
+                                command.env(k, v);
+                            }
+                            return Some(command);
+                        }
+                    }
+                }
+                break;
+            }
+        }
+    }
+    None
+}
+
+#[cfg(target_os = "windows")]
+pub fn compile_rc(src: &str) -> Option<()> {
+    let mut cmd = find_rc()?;
+    let outdir = env::var("OUT_DIR").ok()?;
+    let outname = format!("{}\\{}.res", outdir, Path::new(src).file_stem()?.to_str()?);
+    cmd.arg("/fo").arg(&outname).arg(src);
+    let output = match cmd.output() {
+        Ok(output) => output,
+        Err(e) => panic!("Failed to run rc.exe: {}", e),
+    };
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stdout);
+        panic!("rc.exe failed with status: {} {} bbb", output.status, stderr);
+    }
+    println!("cargo:rerun-if-changed={}", src);
+    println!("cargo:rustc-link-arg-bins={}", outname);
+    Some(())
+}
+#[cfg(not(target_os = "windows"))]
+pub fn compile_rc(src: &str) -> Option<()> {
+    Some(())
+}
 
 #[cfg(test)]
 mod tests {
