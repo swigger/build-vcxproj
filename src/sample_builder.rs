@@ -27,7 +27,8 @@ fn init_builder(is_debug: bool) -> cc::Build {
 	cxxb.cpp(true).std("c++20").flag("/EHsc").flag("/utf-8")
 		.flag("/D_CRT_SECURE_NO_WARNINGS")
 		.flag("/D_CRT_NONSTDC_NO_WARNINGS")
-		.flag("/DUNICODE").flag("/D_UNICODE").flag("/Zi").flag("/FS").flag("/W3");
+		.flag("/DUNICODE").flag("/D_UNICODE").flag("/Zi").flag("/FS");
+	cxxb.remove_flag("/Z7");
 	if is_debug {
 		cxxb.flag("/Od").flag("/RTC1").flag("/D_DEBUG");
 	} else {
