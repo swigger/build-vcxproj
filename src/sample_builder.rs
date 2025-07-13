@@ -1,6 +1,7 @@
 use cc;
 use std::env;
 use std::collections::HashSet;
+use bitflags::bitflags;
 
 fn find_files(ptns: &[&str]) -> Vec<String> {
 	let mut rt = HashSet::new();
@@ -20,17 +21,22 @@ fn find_files(ptns: &[&str]) -> Vec<String> {
 }
 
 #[cfg(target_os = "windows")]
-fn init_builder() -> cc::Build {
+fn init_builder(is_debug: bool) -> cc::Build {
 	env::set_var("VSLANG", "1033");
 	let mut cxxb = cc::Build::new();
 	cxxb.cpp(true).std("c++20").flag("/EHsc").flag("/utf-8")
 		.flag("/D_CRT_SECURE_NO_WARNINGS")
 		.flag("/D_CRT_NONSTDC_NO_WARNINGS")
-		.flag("/DUNICODE").flag("/D_UNICODE");
+		.flag("/DUNICODE").flag("/D_UNICODE").flag("/Zi").flag("/FS").flag("/W3");
+	if is_debug {
+		cxxb.flag("/Od").flag("/RTC1").flag("/D_DEBUG");
+	} else {
+		cxxb.flag("/O2").flag("/DNDEBUG");
+	}
 	cxxb
 }
 #[cfg(not(target_os = "windows"))]
-fn init_builder() -> cc::Build {
+fn init_builder(isdebug: bool) -> cc::Build {
 	let mut cxxb = cc::Build::new();
 	cxxb.cpp(true).std("c++20").flag("-Wall").flag("-Wextra")
 		.flag("-Wno-unused-parameter")
@@ -39,11 +45,24 @@ fn init_builder() -> cc::Build {
 		.flag("-Wno-missing-field-initializers")
 		.flag("-Wno-unknown-pragmas")
 		.flag("-g");
+	if isdebug {
+		cxxb.flag("-O0");
+	} else {
+		cxxb.flag("-O2");
+	}
 	cxxb
 }
 
+bitflags! {
+	pub struct BuildOptions: u32 {
+		const BuildWithVCLib = 0b01;
+		const Dummy = 0b10;
+	}
+}
+
+
 #[allow(dead_code)]
-pub fn build<T>(projname: &str, headers: &[&str], sources: &[&str], modify: T)
+pub fn build<T>(projname: &str, headers: &[&str], sources: &[&str], opt:BuildOptions, modify: T)
 	where T: FnOnce(&mut cc::Build)
 {
 	let srcfiles = find_files(sources);
@@ -54,7 +73,11 @@ pub fn build<T>(projname: &str, headers: &[&str], sources: &[&str], modify: T)
 		println!("cargo:rerun-if-changed={}", entry);
 	}
 
-	let from_vs = env::var("VisualStudioDir").map(|x| !x.is_empty()).unwrap_or(false);
+	let from_vs = if opt.contains(BuildOptions::BuildWithVCLib) {
+		env::var("VisualStudioDir").map(|x| !x.is_empty()).unwrap_or(false)
+	} else {
+		false
+	};
 	let is_debug = env::var("PROFILE").map(|x| x == "debug").unwrap_or(false);
 	if from_vs {
 		if is_debug {
@@ -65,7 +88,7 @@ pub fn build<T>(projname: &str, headers: &[&str], sources: &[&str], modify: T)
 			println!("cargo:rerun-if-changed=x64/Release/{}.lib", projname);
 		}
 	} else {
-		let mut cxxb = init_builder();
+		let mut cxxb = init_builder(is_debug);
 		cxxb.files(srcfiles);
 		modify(&mut cxxb);
 		cxxb.compile(&format!("{}1", projname));
