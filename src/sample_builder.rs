@@ -28,7 +28,6 @@ fn init_builder(is_debug: bool) -> cc::Build {
 		.flag("/D_CRT_SECURE_NO_WARNINGS")
 		.flag("/D_CRT_NONSTDC_NO_WARNINGS")
 		.flag("/DUNICODE").flag("/D_UNICODE").flag("/Zi").flag("/FS");
-	cxxb.remove_flag("/Z7");
 	if is_debug {
 		cxxb.flag("/Od").flag("/RTC1").flag("/D_DEBUG");
 	} else {
@@ -63,7 +62,8 @@ bitflags! {
 
 
 #[allow(dead_code)]
-pub fn build<T>(projname: &str, headers: &[&str], sources: &[&str], opt:BuildOptions, modify: T)
+pub fn build<T>(projname: &str, headers: &[&str], sources: &[&str], incdirs:&[&str],
+                opt:BuildOptions, modify: T)
 	where T: FnOnce(&mut cc::Build)
 {
 	let srcfiles = find_files(sources);
@@ -89,9 +89,27 @@ pub fn build<T>(projname: &str, headers: &[&str], sources: &[&str], opt:BuildOpt
 			println!("cargo:rerun-if-changed=x64/Release/{}.lib", projname);
 		}
 	} else {
+		let mut new_incdirs = Vec::new();
+		for dir in incdirs {
+			let expanded_dir = if dir.starts_with("~") {
+				if let Ok(home) = env::var("HOME") {
+					dir.replacen("~", &home, 1)
+				} else {
+					dir.to_string()
+				}
+			} else {
+				dir.to_string()
+			};
+			
+			if std::path::Path::new(&expanded_dir).exists() {
+				new_incdirs.push(expanded_dir);
+			}
+		}
+		
 		let mut cxxb = init_builder(is_debug);
 		cxxb.files(srcfiles);
+		cxxb.includes(&new_incdirs);
 		modify(&mut cxxb);
-		cxxb.compile(&format!("{}1", projname));
+		cxxb.compile(&format!("{}", projname));
 	}
 }
