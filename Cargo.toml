@@ -1,6 +1,6 @@
 [package]
 name = "build-vcxproj"
-version = "0.1.4"
+version = "0.1.5"
 categories = ["development-tools"]
 description = "load sources from vcxproj in build.rs"
 edition = "2021"
