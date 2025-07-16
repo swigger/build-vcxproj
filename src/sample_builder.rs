@@ -105,7 +105,12 @@ pub fn build<T>(projname: &str, headers: &[&str], sources: &[&str], incdirs:&[&s
 				new_incdirs.push(expanded_dir);
 			}
 		}
-		
+		crate::vcpkg::add_inc_paths(&mut new_incdirs);
+		let mut lib_dirs = Vec::new();
+		crate::vcpkg::add_lib_paths(is_debug, &mut lib_dirs);
+		for libdir in lib_dirs {
+			println!("cargo:rustc-link-search={}", libdir);
+		}
 		let mut cxxb = init_builder(is_debug);
 		cxxb.files(srcfiles);
 		cxxb.includes(&new_incdirs);
